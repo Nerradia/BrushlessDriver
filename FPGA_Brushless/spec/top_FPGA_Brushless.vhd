@@ -10,27 +10,51 @@ entity top_FPGA_brushless is /*
   port (
     clk_input : in  std_logic;
 
-    led_0     : out std_logic;
-    led_1     : out std_logic;
-    led_2     : out std_logic;
-    led_3     : out std_logic;
-    led_4     : out std_logic;
-    led_5     : out std_logic;
-    led_6     : out std_logic;
-    led_7     : out std_logic;
+  -- LED
+    led_0       : out std_logic;
+    led_1       : out std_logic;
+    led_2       : out std_logic;
+    led_3       : out std_logic;
+    led_4       : out std_logic;
+    led_5       : out std_logic;
+    led_6       : out std_logic;
+    led_7       : out std_logic;
 
-    H_A       : out std_logic;
-    L_A       : out std_logic;
-    H_B       : out std_logic;
-    L_B       : out std_logic;
-    H_C       : out std_logic;
-    L_C       : out std_logic
+    -- Mosfets
+    H_A         : out std_logic;
+    L_A         : out std_logic;
+    H_B         : out std_logic;
+    L_B         : out std_logic;
+    H_C         : out std_logic;
+    L_C         : out std_logic;
+
+    -- Hall sensor
+    spi_clk     : out std_logic;
+    spi_miso    : in std_logic;
+    spi_mosi    : out std_logic;
+    spi_hall_cs : out std_logic
   );
 
 end entity top_FPGA_brushless;
 
 architecture rtl of top_FPGA_brushless is 
 
+  component hall_sensor is
+  generic (
+      clk_freq : integer := 300_000_000
+    );
+  port (
+    clk         : in  std_logic;
+    reset_n     : in  std_logic;
+
+    spi_clk     : out std_logic;
+    spi_miso    : in  std_logic;
+    spi_mosi    : out std_logic;
+    spi_hall_cs : out std_logic;
+
+    hall_position : out std_logic_vector(13 downto 0)
+  );
+  end component;
 
   component pll_altera IS
     PORT
@@ -88,7 +112,7 @@ architecture rtl of top_FPGA_brushless is
   );
   end component;
 
-
+  constant clk_freq : integer := 100_000_000;
 
   --signal clk_en : std_logic;
   signal pwm_out      : std_logic;
@@ -104,7 +128,7 @@ architecture rtl of top_FPGA_brushless is
   signal H_C_int  : std_logic;
   signal L_C_int  : std_logic;
 
-
+  signal hall_position : std_logic_vector(13 downto 0);
 begin
 
 pll_altera_inst : pll_altera PORT MAP (
@@ -122,8 +146,6 @@ inst_pwm : pwm
     value   => std_logic_vector(to_unsigned(2000, 13)),
 
     pwm_out => pwm_out);
-
-  led_7 <= pwm_out;
 
 inst_clk_div : clk_div
   port map (
@@ -150,6 +172,23 @@ inst_output_sequencer : output_sequencer
     L_C     => L_C_int
   );
 
+inst_hall_sensor : hall_sensor
+  generic map (
+    clk_freq => clk_freq
+  )
+  port map (
+    clk           => clk,
+    reset_n       => reset_n,
+
+    spi_clk       => spi_clk,
+    spi_miso      => spi_miso,
+    spi_mosi      => spi_mosi,
+    spi_hall_cs   => spi_hall_cs,
+
+    hall_position => hall_position
+  );
+
+
   H_A <= H_A_int and pwm_out;
   L_A <= L_A_int and pwm_out;
   H_B <= H_B_int and pwm_out;
@@ -159,11 +198,21 @@ inst_output_sequencer : output_sequencer
 
   --(led_5, led_4, led_3) <= step;
 
-  led_0 <= H_A;
-  led_1 <= L_A;
-  led_2 <= H_B;
-  led_3 <= L_B;
-  led_4 <= H_C;
-  led_5 <= L_C;
+ -- led_0 <= H_A;
+ -- led_1 <= L_A;
+ -- led_2 <= H_B;
+ -- led_3 <= L_B;
+ -- led_4 <= H_C;
+ -- led_5 <= L_C;
+
+  led_7 <= hall_position(13);
+  led_6 <= hall_position(12);
+  led_5 <= hall_position(11);
+  led_4 <= hall_position(10);
+  led_3 <= hall_position(9);
+  led_2 <= hall_position(8);
+  led_1 <= hall_position(7);
+  led_0 <= hall_position(6);
+
 
 end architecture;
